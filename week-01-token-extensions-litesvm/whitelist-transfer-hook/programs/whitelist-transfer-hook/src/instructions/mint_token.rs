@@ -1,12 +1,7 @@
-use anchor_lang::{ 
-    prelude::*, 
-};
-use anchor_spl::token_interface::{
-    Mint, 
-    TokenInterface,
-};
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{Mint, TokenInterface};
 
-use crate::state::Whitelist;
+use crate::state::WhitelistedUser;
 
 #[derive(Accounts)]
 pub struct TokenFactory<'info> {
@@ -26,7 +21,7 @@ pub struct TokenFactory<'info> {
         seeds = [b"whitelist"], 
         bump
     )]
-    pub blocklist: Account<'info, Whitelist>,
+    pub blocklist: Account<'info, WhitelistedUser>,
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
 }
