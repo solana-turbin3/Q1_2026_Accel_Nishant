@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::state::Whitelist;
+use crate::state::WhitelistedUser;
 
 #[derive(Accounts)]
 pub struct InitializeWhitelist<'info> {
@@ -13,14 +13,14 @@ pub struct InitializeWhitelist<'info> {
         seeds = [b"whitelist"],
         bump
     )]
-    pub whitelist: Account<'info, Whitelist>,
+    pub whitelist: Account<'info, WhitelistedUser>,
     pub system_program: Program<'info, System>,
 }
 
 impl<'info> InitializeWhitelist<'info> {
     pub fn initialize_whitelist(&mut self, bumps: InitializeWhitelistBumps) -> Result<()> {
         // Initialize the whitelist with an empty address vector
-        self.whitelist.set_inner(Whitelist { 
+        self.whitelist.set_inner(Whitelist {
             address: vec![],
             bump: bumps.whitelist,
         });

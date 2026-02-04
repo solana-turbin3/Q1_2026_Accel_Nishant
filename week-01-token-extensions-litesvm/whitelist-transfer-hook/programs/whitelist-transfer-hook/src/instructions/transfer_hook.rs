@@ -16,7 +16,7 @@ use anchor_spl::{
     }
 };
 
-use crate::state::Whitelist;
+use crate::state::WhitelistedUser;
 
 #[derive(Accounts)]
 pub struct TransferHook<'info> {
@@ -42,7 +42,7 @@ pub struct TransferHook<'info> {
         seeds = [b"whitelist"], 
         bump = whitelist.bump,
     )]
-    pub whitelist: Account<'info, Whitelist>,
+    pub whitelist: Account<'info, WhitelistedUser>,
 }
 
 impl<'info> TransferHook<'info> {

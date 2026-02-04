@@ -13,11 +13,11 @@ import {
   createMintToInstruction,
   createTransferCheckedInstruction,
 } from "@solana/spl-token";
-import { 
-  SendTransactionError, 
-  SystemProgram, 
-  Transaction, 
-  sendAndConfirmTransaction 
+import {
+  SendTransactionError,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction
 } from '@solana/web3.js';
 import { WhitelistTransferHook } from "../target/types/whitelist_transfer_hook";
 
@@ -60,29 +60,30 @@ describe("whitelist-transfer-hook", () => {
 
   const whitelist = anchor.web3.PublicKey.findProgramAddressSync(
     [
-      Buffer.from("whitelist"),
+      Buffer.from("whitelist"), provider.publicKey.toBuffer()
     ],
     program.programId
   )[0];
 
-  it("Initializes the Whitelist", async () => {
-    const tx = await program.methods.initializeWhitelist()
-      .accountsPartial({
-        admin: provider.publicKey,
-        whitelist,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
+  // it("Initializes the Whitelist", async () => {
+  //   const tx = await program.methods.initializeWhitelist()
+  //     .accountsPartial({
+  //       admin: provider.publicKey,
+  //       whitelist,
+  //       systemProgram: anchor.web3.SystemProgram.programId,
+  //     })
+  //     .rpc();
 
-    console.log("\nWhitelist initialized:", whitelist.toBase58());
-    console.log("Transaction signature:", tx);
-  });
+  //   console.log("\nWhitelist initialized:", whitelist.toBase58());
+  //   console.log("Transaction signature:", tx);
+  // });
 
   it("Add user to whitelist", async () => {
     const tx = await program.methods.addToWhitelist(provider.publicKey)
       .accountsPartial({
         admin: provider.publicKey,
         whitelist,
+        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
 
@@ -95,6 +96,7 @@ describe("whitelist-transfer-hook", () => {
       .accountsPartial({
         admin: provider.publicKey,
         whitelist,
+        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
 
