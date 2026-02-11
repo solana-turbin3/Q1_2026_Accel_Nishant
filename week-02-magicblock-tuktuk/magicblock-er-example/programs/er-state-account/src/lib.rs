@@ -126,9 +126,9 @@ pub struct CallbackUserAccountCtx<'info> {
 /*
 For task 1 step : update state inside ER ( ephemeral rollup )
 
-1. Init user account
-2. call randomize_user_account instruction -> It call update the state
-3. We can fetch the state and check the state is updated or not but it will with radom number as expected.
+1. Init user account -> `initialize`
+2. call `randomize_user_account` instruction -> It call update the state
+3. We can fetch the state and check the state is updated or not. It will update with random number as expected.
 
 
 
