@@ -89,6 +89,8 @@ describe("whitelist-transfer-hook", () => {
 
     console.log("\nUser added to whitelist:", provider.publicKey.toBase58());
     console.log("Transaction signature:", tx);
+
+
   });
 
   it("Remove user to whitelist", async () => {
@@ -225,10 +227,12 @@ describe("whitelist-transfer-hook", () => {
       console.log("\nTransfer Signature:", txSig);
     }
     catch (error) {
+      console.log(error)
+      console.log(error?.meta?.logMessages);
       if (error instanceof SendTransactionError) {
         console.error("\nTransaction failed:", error.logs[6]);
-        // console.error("\nTransaction failed. Full logs:");
-        // error.logs?.forEach((log, i) => console.error(`  ${i}: ${log}`));
+        console.error("\nTransaction failed. Full logs:");
+        error.logs?.forEach((log, i) => console.error(`  ${i}: ${log}`));
       } else {
         console.error("\nUnexpected error:", error);
       }

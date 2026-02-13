@@ -39,7 +39,8 @@ pub struct TransferHook<'info> {
     )]
     pub extra_account_meta_list: UncheckedAccount<'info>,
     #[account(
-        seeds = [b"whitelist"], 
+        // Use the owner address (the signer who initiates the transfer) as the seed for the whitelist PDA
+        seeds = [b"whitelist", owner.key().as_ref()],
         bump = whitelist.bump,
     )]
     pub whitelist: Account<'info, WhitelistedUser>,
@@ -55,18 +56,29 @@ impl<'info> TransferHook<'info> {
         msg!("Source token owner: {}", self.source_token.owner);
         msg!("Destination token owner: {}", self.destination_token.owner);
 
-        if self.whitelist.address.contains(&self.source_token.owner) {
-            msg!("Transfer allowed: The address is whitelisted");
-        } else {
-            panic!("TransferHook: Address is not whitelisted");
+        // if self.whitelist.address.contains(&self.source_token.owner) {
+        //     msg!("Transfer allowed: The address is whitelisted");
+        // } else {
+        //     panic!("TransferHook: Address is not whitelisted");
+        // }
+
+        // Instead of checking the owner's key in a vector, check if the WhitelistedUser PDA exists.
+        // In Anchor, account constraints guarantee account is present. But we can still check the whitelist account's lamports.
+        if self.whitelist.to_account_info().lamports() == 0 {
+            // If PDA account does not exist or has zero lamports, treat as not whitelisted.
+            //  panic!("TransferHook: Address is not whitelisted"); // Consider a real error code
+          
+            return err!(AppError::NotWhiteListed);
         }
+
+        msg!("Transfer allowed: The address is whitelisted");
 
         Ok(())
     }
 
     /// Checks if the transfer hook is being executed during a transfer operation.
     fn check_is_transferring(&mut self) -> Result<()> {
-        // Ensure that the source token account has the transfer hook extension enabled
+
 
         // Get the account info of the source token account
         let source_token_info = self.source_token.to_account_info();
@@ -84,9 +96,21 @@ impl<'info> TransferHook<'info> {
     
         // Check if the account is in the middle of a transfer operation
         if !bool::from(account_extension.transferring) {
-            panic!("TransferHook: Not transferring");
+            // panic!("TransferHook: Not transferring");
+            return err!(AppError::NotTransferring);
         }
     
         Ok(())
     }
+}
+
+
+
+#[error_code]
+pub enum AppError {
+    #[msg("Address is not whitelisted")]
+    NotWhiteListed,
+
+    #[msg("TransferHook: Not transferring")]
+    NotTransferring
 }

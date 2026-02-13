@@ -17,7 +17,10 @@
 #### 4. Why minting required ?
 - Without `minting ` account doesn't exist. It has decimal, authoriy, supply, extension, or related extra functionality.
 
+#### 5. Why `transfer hooks` ?
+- Suppose, Bob transfers token to Alice. bob balances decrease and alice increase , in between hook will call and it will check custom condition , if everything goes well then successful transaction happen other wise revert. [Transfer Hooks](https://solana.com/developers/guides/token-extensions/transfer-hook)
 ---
 
 ### Important Stuff : 
 1. The transfer hook validates the sender’s address. Only whitelisted senders can transfer tokens. The token is a custom Token-2022 mint created with the transfer hook extension, not an existing token like USDC.”
+2. The transfer hook must be implemented as an instruction because Solana programs can only execute logic through instructions. The Token-2022 program CPI-calls this instruction automatically during transfers.
