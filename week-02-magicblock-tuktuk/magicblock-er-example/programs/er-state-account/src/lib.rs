@@ -35,14 +35,13 @@ pub mod er_state_account {
         Ok(())
     }
 
-    pub fn update_commit(ctx: Context<UpdateCommit>, new_data: u64) -> Result<()> {
-        ctx.accounts.update_commit(new_data)?;
+    pub fn delegate(ctx: Context<Delegate>) -> Result<()> {
+        ctx.accounts.delegate()?;
 
         Ok(())
     }
-
-    pub fn delegate(ctx: Context<Delegate>) -> Result<()> {
-        ctx.accounts.delegate()?;
+    pub fn update_commit(ctx: Context<UpdateCommit>, new_data: u64) -> Result<()> {
+        ctx.accounts.update_commit(new_data)?;
 
         Ok(())
     }

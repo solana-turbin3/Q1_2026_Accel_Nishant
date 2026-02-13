@@ -11,11 +11,13 @@ describe("er-state-account", () => {
 
   const providerEphemeralRollup = new anchor.AnchorProvider(
     new anchor.web3.Connection(
-      process.env.EPHEMERAL_PROVIDER_ENDPOINT ||
-      "https://devnet.magicblock.app/",
+      // process.env.EPHEMERAL_PROVIDER_ENDPOINT ||
+      // "https://devnet.magicblock.app/",
+      "http://localhost:7799",
       {
         wsEndpoint:
-          process.env.EPHEMERAL_WS_ENDPOINT || "wss://devnet.magicblock.app/",
+          // process.env.EPHEMERAL_WS_ENDPOINT || "wss://devnet.magicblock.app/",
+          "ws://localhost:7800"
       },
     ),
     anchor.Wallet.local(),
@@ -101,6 +103,8 @@ describe("er-state-account", () => {
       txHash,
       providerEphemeralRollup.connection,
     );
+
+    console.log("Tx commit : ", txCommitSgn)
 
     console.log("\nUser Account State Updated: ", txHash);
   });
@@ -206,4 +210,41 @@ User Account Closed:  5BmAdTYcf2gkmNqyfs72ND6FvfdSu2uMofeiDj9uYehK5gad33DEcr3Ci9
 ✨  Done in 27.25s.
 
 
+ */
+
+
+
+/**
+ * ***---For running magicblock validator----***
+ * 
+ * Install MagicBlock Ephemeral Validator
+ * Step 1 : npm install -g @magicblock-labs/ephemeral-validator@latest
+ * 
+ * Run solana-test-validator with cloned delegation program and accounts from Devnet:
+ * Step 2 : mb-test-validator --reset
+ * 
+ * Upgrade and deploy your program to localhost:
+ * Step 3 : `anchor build && anchor deploy \
+--provider.cluster localnet`
+
+
+
+Step 4 : Run the local ephemeral validator pointing to localhost:
+
+RUST_LOG=info ephemeral-validator \
+  --remotes "http://localhost:8899" \
+  --remotes "ws://localhost:8900"  \
+  -l "127.0.0.1:7799"
+
+
+
+  Step 5: Run your tests against the local ephemeral validator:
+
+  EPHEMERAL_PROVIDER_ENDPOINT="http://localhost:7799" \
+EPHEMERAL_WS_ENDPOINT="ws://localhost:7800" \
+anchor test \
+--provider.cluster localnet \
+--skip-local-validator \
+--skip-build \
+--skip-deploy
  */

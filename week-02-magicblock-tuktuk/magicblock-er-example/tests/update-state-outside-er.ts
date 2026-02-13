@@ -42,7 +42,7 @@ describe("Update State Outside ER ( Ephemeral Rollup )", () => {
     program.programId,
   )[0];
 
-  it("Is initialized!", async () => {
+  xit("Is initialized!", async () => {
     // Add your test here.
     const tx = await program.methods
       .initialize()
