@@ -1,343 +1,217 @@
 # Whitelist Transfer Hook
 
-This example demonstrates how to implement a transfer hook using the SPL Token 2022 Transfer Hook interface to enforce whitelist restrictions on token transfers.
-
-In this example, only whitelisted addresses will be able to transfer tokens that have this transfer hook enabled, providing fine-grained access control over token movements.
+A **Solana program** that uses the **SPL Token 2022 Transfer Hook** interface to enforce whitelist-based access control on token transfers. Only addresses that an admin has whitelisted can transfer tokens from their accounts—everyone else is blocked at the program level.
 
 ---
 
-## Let's walk through the architecture:
+## Table of Contents
 
-For this program, we will have 1 main state account:
+- [What is this?](#what-is-this)
+- [Concepts for beginners](#concepts-for-beginners)
+- [Protocol overview](#protocol-overview)
+- [Devnet deployment](#devnet-deployment)
+- [Architecture](#architecture)
+- [Program flow](#program-flow)
+- [State accounts](#state-accounts)
+- [Instructions](#instructions)
+- [Quick start](#quick-start)
+- [Testing](#testing)
+- [Resources](#resources)
 
-- A Whitelist account
+---
 
-A Whitelist account consists of:
+## What is this?
+
+This project is an **on-chain whitelist** for **Token 2022** mints. When a mint is created with this program as its transfer hook:
+
+- **Whitelisted users** → Can send the token as normal.
+- **Non-whitelisted users** → Any transfer **from** their token account is rejected by the program.
+
+Admins use the program to add or remove addresses from the whitelist. The check happens automatically on every transfer, with no extra steps for compliant users.
+
+---
+
+## Concepts for beginners
+
+| Term                              | Meaning                                                                                              |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **SPL Token / Token Program**     | Solana’s standard for fungible tokens (balances, mints, transfers).                                  |
+| **Token 2022**                    | An upgraded token program with extensions (e.g. transfer hooks, interest, confidential transfers).   |
+| **Transfer hook**                 | Code that runs **during** a token transfer. It can allow or deny the transfer based on custom logic. |
+| **Whitelist**                     | A list of addresses that are allowed to do something (here: transfer the token).                     |
+| **PDA (Program Derived Address)** | An address derived from seeds and program ID. no private key, only the program can “sign” for it.    |
+
+**In one sentence:** This program is the “transfer hook” that Token 2022 calls on every transfer. the hook allows the transfer only if the **source token account owner** is on the whitelist.
+
+---
+
+## Protocol overview
+
+The diagram below summarizes how the whitelist transfer hook fits into the Token 2022 transfer flow.
+
+![Whitelist Transfer Hook – Protocol overview](./assests/overview.png)
+
+_High level: Admin configures a mint and whitelist. Token 2022 runs our hook on each transfer. the hook allows or denies based on the whitelist._
+
+---
+
+## Devnet deployment
+
+The program is deployed on **Solana Devnet** so you can interact with it without running a local validator.
+
+| Item              | Value                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| **Network**       | Devnet                                                                                     |
+| **Program ID**    | `EfvcbUrqid3P54BhoFLrJhAdJxe2vxKhGG9sDRvCsWHh`                                             |
+| **IDL account**   | `8ySPjSvr6ntXcpU6SbyYgSxaWyYh7YU2TpHBnPErsPkR`                                             |
+| **Deployment tx** | `3eBgGDkKsLY8s5qC2pnaaNUdms4BNKYcSCG2achwzXA1AUeiHiCprEm42QB2u7M9qJi3ZkEzw8ERZkbPvMWHbF62` |
+
+**Example: connect with Anchor**
+
+```ts
+const programId = new PublicKey("EfvcbUrqid3P54BhoFLrJhAdJxe2vxKhGG9sDRvCsWHh");
+const idl = await Program.fetchIdl(programId, provider);
+const program = new Program(idl, programId, provider);
+```
+
+You can also load the IDL from the IDL account or from the repo’s `target/idl/whitelist_transfer_hook.json` and pass the same `programId` for devnet.
+
+---
+
+## Architecture
+
+The program uses **four account roles**:
+
+1. **Config** – One per admin. Stores who the admin is and a bump. Used to gate admin-only actions and to derive the program’s mint.
+2. **WhitelistedUser** – One per whitelisted address. PDA per user; if this account exists, that user is allowed to transfer.
+3. **Mint (Token 2022)** – The token mint with the Transfer Hook extension, pointing to this program.
+4. **ExtraAccountMetaList** – Per-mint account that tells Token 2022 which extra accounts to pass into the hook (here: the `WhitelistedUser` PDA for the source owner).
+
+All of these are PDAs derived from the program ID and documented seeds.
+
+---
+
+## Program flow
+
+1. **Admin setup**
+
+   - `init_config` – Create the admin’s Config PDA.
+   - `add_to_whitelist(user)` – Create a WhitelistedUser PDA for `user`.
+   - `remove_from_whitelist(user)` – Close the WhitelistedUser PDA for `user`.
+
+2. **Mint and hook setup**
+
+   - `init_mint(decimals)` – Create a Token 2022 mint with the Transfer Hook extension (authority: this program).
+   - `initialize_transfer_hook` – Create and fill the ExtraAccountMetaList for that mint so Token 2022 knows to pass the `WhitelistedUser` PDA (derived from the source owner) into the hook.
+
+3. **Transfers**
+   - User sends a normal Token 2022 transfer (e.g. `createTransferCheckedInstruction`).
+   - Token 2022 invokes this program’s transfer hook with the extra accounts (including the WhitelistedUser PDA for the source owner).
+   - The hook checks that a WhitelistedUser account exists for the source owner and that it is in a “transferring” state. If not, the transfer fails.
+
+So: **only whitelisted users (those with a WhitelistedUser account) can transfer.**
+
+---
+
+## State accounts
+
+### Config
+
+One per admin; seeds: `["config", admin_pubkey]`.
 
 ```rust
-#[account]
-pub struct Whitelist {
-    pub address: Vec<Pubkey>,
+pub struct Config {
+    pub admin: Pubkey,
     pub bump: u8,
 }
 ```
 
-### In this state account, we will store:
+Used to authenticate the admin and to derive the program’s mint PDA.
 
-- address: A dynamic vector containing all the public keys that are authorized to transfer tokens.
-- bump: The bump seed used to derive the whitelist PDA.
+### WhitelistedUser
 
-This account uses a dynamic vector structure that can grow and shrink as addresses are added or removed from the whitelist.
+One per whitelisted address; seeds: `["whitelisted_user", user_pubkey]`.
+
+```rust
+pub struct WhitelistedUser {
+    pub user: Pubkey,
+    pub bump: u8,
+}
+```
+
+If this PDA exists for a given user, that user is allowed to transfer. Removing from the whitelist closes this account.
 
 ---
 
-### The admin will be able to create new Whitelist accounts. For that, we create the following context:
+## Instructions
 
-```rust
-#[derive(Accounts)]
-pub struct InitializeWhitelist<'info> {
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    #[account(
-        init,
-        payer = admin,
-        space = 8 + 4 + std::mem::size_of::<Pubkey>(),
-        seeds = [b"whitelist"],
-        bump
-    )]
-    pub whitelist: Account<'info, Whitelist>,
-    pub system_program: Program<'info, System>,
-}
-```
+| Instruction                   | Who                | Description                                                                                      |
+| ----------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
+| `init_config`                 | Admin              | Create Config PDA for the admin.                                                                 |
+| `add_to_whitelist(user)`      | Admin              | Create WhitelistedUser PDA for `user`.                                                           |
+| `remove_from_whitelist(user)` | Admin              | Close WhitelistedUser PDA for `user`.                                                            |
+| `init_mint(decimals)`         | Admin (via Config) | Create Token 2022 mint with Transfer Hook extension.                                             |
+| `initialize_transfer_hook`    | Payer              | Create ExtraAccountMetaList for a mint so transfers include the whitelist PDA.                   |
+| `transfer_token(amount)`      | —                  | **Called by Token 2022**, not directly by users. Validates that the source owner is whitelisted. |
 
-Let´s have a closer look at the accounts that we are passing in this context:
-
-- admin: Will be the person creating the whitelist account. He will be a signer of the transaction, and we mark his account as mutable as we will be deducting lamports from this account.
-
-- whitelist: Will be the state account that we will initialize and the admin will be paying for the initialization of the account. We derive the Whitelist PDA from the byte representation of the word "whitelist".
-
-- system_program: Program responsible for the initialization of any new account.
-
-### We then implement some functionality for our InitializeWhitelist context:
-
-```rust
-impl<'info> InitializeWhitelist<'info> {
-    pub fn initialize_whitelist(&mut self, bumps: InitializeWhitelistBumps) -> Result<()> {
-        // Initialize the whitelist with an empty address vector
-        self.whitelist.set_inner(Whitelist {
-            address: vec![],
-            bump: bumps.whitelist,
-        });
-
-        Ok(())
-    }
-}
-```
-
-In here, we set the initial data of our Whitelist account with an empty vector of addresses and store the bumps.
+User-facing transfers use the normal SPL Token 2022 transfer instruction; the program’s `transfer_token` runs as the hook invoked by Token 2022.
 
 ---
 
-### The admin will be able to manage whitelist operations (add/remove addresses):
+## Quick start
 
-```rust
-#[derive(Accounts)]
-pub struct WhitelistOperations<'info> {
-    #[account(
-        mut,
-    )]
-    pub admin: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"whitelist"],
-        bump,
-    )]
-    pub whitelist: Account<'info, Whitelist>,
-    pub system_program: Program<'info, System>,
-}
-```
+**Prerequisites:** Node.js, Yarn, Rust, Solana CLI, Anchor CLI.
 
-In this context, we are passing all the accounts needed to manage the whitelist:
+1. Clone and install:
 
-- admin: The address of the platform admin. He will be a signer of the transaction, and we mark his account as mutable as he may need to pay for account reallocation fees.
+   ```bash
+   cd whitelist-transfer-hook
+   yarn install
+   ```
 
-- whitelist: The state account that we will modify. We derive the Whitelist PDA from the byte representation of the word "whitelist".
+2. Build:
 
-- system_program: Program responsible for account reallocation and CPI transfers when the whitelist size changes.
+   ```bash
+   anchor build
+   ```
 
-### We then implement some functionality for our WhitelistOperations context:
+3. Run tests (local validator):
 
-```rust
-impl<'info> WhitelistOperations<'info> {
-    pub fn add_to_whitelist(&mut self, address: Pubkey) -> Result<()> {
-        if !self.whitelist.address.contains(&address) {
-            self.realloc_whitelist(true)?;
-            self.whitelist.address.push(address);
-        }
-        Ok(())
-    }
+   ```bash
+   anchor test
+   ```
 
-    pub fn remove_from_whitelist(&mut self, address: Pubkey) -> Result<()> {
-        if let Some(pos) = self.whitelist.address.iter().position(|&x| x == address) {
-            self.whitelist.address.remove(pos);
-            self.realloc_whitelist(false)?;
-        }
-        Ok(())
-    }
-
-    pub fn realloc_whitelist(&self, is_adding: bool) -> Result<()> {
-        // Get the account info for the whitelist
-        let account_info = self.whitelist.to_account_info();
-
-        if is_adding {  // Adding to whitelist
-            let new_account_size = account_info.data_len() + std::mem::size_of::<Whitelist>();
-            // Calculate rent required for the new account size
-            let lamports_required = (Rent::get()?).minimum_balance(new_account_size);
-            // Determine additional rent required
-            let rent_diff = lamports_required - account_info.lamports();
-
-            // Perform transfer of additional rent
-            let cpi_program = self.system_program.to_account_info();
-            let cpi_accounts = system_program::Transfer{
-                from: self.admin.to_account_info(),
-                to: account_info.clone(),
-            };
-            let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-            system_program::transfer(cpi_context,rent_diff)?;
-
-            // Reallocate the account
-            account_info.resize(new_account_size)?;
-            msg!("Account Size Updated: {}", account_info.data_len());
-
-        } else {        // Removing from whitelist
-            let new_account_size = account_info.data_len() - std::mem::size_of::<Whitelist>();
-            // Calculate rent required for the new account size
-            let lamports_required = (Rent::get()?).minimum_balance(new_account_size);
-            // Determine additional rent to be refunded
-            let rent_diff = account_info.lamports() - lamports_required;
-
-            // Reallocate the account
-            account_info.resize(new_account_size)?;
-            msg!("Account Size Downgraded: {}", account_info.data_len());
-
-            // Perform transfer to refund additional rent
-            **self.admin.to_account_info().try_borrow_mut_lamports()? += rent_diff;
-            **self.whitelist.to_account_info().try_borrow_mut_lamports()? -= rent_diff;
-        }
-
-        Ok(())
-    }
-}
-```
-
-In here, we implement the logic to dynamically add and remove addresses from the whitelist, adding or deducing lamports from the whitelist account to take in consideration the new size.
-
-- When adding a new address to the whitelist, we first calculate and transfer additional rent from the admin to the whitelist account via CPI, then resize the account to accommodate the new data, and lastly we add the new address to the vector.
-
-- When removing an address from the whitelist, we first find the address in the vector and remove it, then we resize the account to a smaller size and refund the excess rent back to the admin using direct lamport manipulation.
+4. To use **devnet** instead of a local validator, set your CLI to devnet and use the [Devnet deployment](#devnet-deployment) Program ID and IDL when building your client.
 
 ---
 
-### The system will need to initialize extra account metadata for the transfer hook:
+## Testing
 
-```rust
-#[derive(Accounts)]
-pub struct InitializeExtraAccountMetaList<'info> {
-    #[account(mut)]
-    payer: Signer<'info>,
+Tests in `tests/whitelist-transfer-hook.ts` cover:
 
-    /// CHECK: ExtraAccountMetaList Account, must use these seeds
-    #[account(
-        init,
-        seeds = [b"extra-account-metas", mint.key().as_ref()],
-        bump,
-        space = ExtraAccountMetaList::size_of(
-            InitializeExtraAccountMetaList::extra_account_metas()?.len()
-        )?,
-        payer = payer
-    )]
-    pub extra_account_meta_list: AccountInfo<'info>,
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub system_program: Program<'info, System>,
-}
+- Initializing admin config
+- Adding and removing users from the whitelist
+- Creating a Token 2022 mint with the transfer hook
+- Creating token accounts and minting
+- Creating the ExtraAccountMetaList for the mint
+- Performing a transfer (with the extra accounts) so the hook is invoked
+
+Run them with:
+
+```bash
+anchor test
 ```
-
-In this context, we are passing all the accounts needed to set up the transfer hook metadata:
-
-- payer: The address paying for the initialization. He will be a signer of the transaction, and we mark his account as mutable as we will be deducting lamports from this account.
-
-- extra_account_meta_list: The account that will store the extra metadata required for the transfer hook. This account is derived from the byte representation of "extra-account-metas" and the mint's public key.
-
-- mint: The token mint that will have the transfer hook enabled.
-
-- system_program: Program responsible for the initialization of any new account.
-
-### We then implement some functionality for our InitializeExtraAccountMetaList context:
-
-```rust
-impl<'info> InitializeExtraAccountMetaList<'info> {
-    pub fn extra_account_metas() -> Result<Vec<ExtraAccountMeta>> {
-        // Derive the whitelist PDA using our program ID
-        let (whitelist_pda, _bump) = Pubkey::find_program_address(
-            &[b"whitelist"],
-            &ID
-        );
-
-        Ok(
-            vec![
-                ExtraAccountMeta::new_with_pubkey(&whitelist_pda.to_bytes().into(), false, false).unwrap(),
-            ]
-        )
-    }
-}
-```
-
-In here, we define the extra accounts that will be required during transfer hook execution. We pre-compute the whitelist PDA using `find_program_address` and include it using `new_with_pubkey`. This ensures the whitelist account is included in every transfer validation.
 
 ---
 
-### The transfer hook will validate every token transfer:
+## Resources
 
-```rust
-#[derive(Accounts)]
-pub struct TransferHook<'info> {
-    #[account(
-        token::mint = mint,
-        token::authority = owner,
-    )]
-    pub source_token: InterfaceAccount<'info, TokenAccount>,
-    pub mint: InterfaceAccount<'info, Mint>,
-    #[account(
-        token::mint = mint,
-    )]
-    pub destination_token: InterfaceAccount<'info, TokenAccount>,
-    /// CHECK: source token account owner, can be SystemAccount or PDA owned by another program
-    pub owner: UncheckedAccount<'info>,
-    /// CHECK: ExtraAccountMetaList Account,
-    #[account(
-        seeds = [b"extra-account-metas", mint.key().as_ref()],
-        bump
-    )]
-    pub extra_account_meta_list: UncheckedAccount<'info>,
-    #[account(
-        seeds = [b"whitelist"],
-        bump = whitelist.bump,
-    )]
-    pub whitelist: Account<'info, Whitelist>,
-}
-```
-
-In this context, we are passing all the accounts needed for transfer validation:
-
-- source_token: The token account from which tokens are being transferred. We validate that it belongs to the correct mint and is owned by the owner.
-
-- mint: The token mint being transferred.
-
-- destination_token: The token account to which tokens are being transferred. We validate that it belongs to the correct mint.
-
-- owner: The owner of the source token account. This can be a system account or a PDA owned by another program.
-
-- extra_account_meta_list: The metadata account that contains information about extra accounts required for this transfer hook.
-
-- whitelist: The whitelist account that contains the authorized addresses.
-
-### We then implement some functionality for our TransferHook context:
-
-```rust
-impl<'info> TransferHook<'info> {
-    /// This function is called when the transfer hook is executed.
-    pub fn transfer_hook(&mut self, _amount: u64) -> Result<()> {
-        // Fail this instruction if it is not called from within a transfer hook
-        self.check_is_transferring()?;
-
-        msg!("Source token owner: {}", self.source_token.owner);
-        msg!("Destination token owner: {}", self.destination_token.owner);
-
-        if self.whitelist.address.contains(&self.source_token.owner) {
-            msg!("Transfer allowed: The address is whitelisted");
-        } else {
-            panic!("TransferHook: Address is not whitelisted");
-        }
-
-        Ok(())
-    }
-
-    /// Checks if the transfer hook is being executed during a transfer operation.
-    fn check_is_transferring(&mut self) -> Result<()> {
-        // Ensure that the source token account has the transfer hook extension enabled
-
-        // Get the account info of the source token account
-        let source_token_info = self.source_token.to_account_info();
-        // Borrow the account data mutably
-        let mut account_data_ref: RefMut<&mut [u8]> = source_token_info.try_borrow_mut_data()?;
-
-        // Unpack the account data as a PodStateWithExtensionsMut
-        // This will allow us to access the extensions of the token account
-        // We use PodStateWithExtensionsMut because TokenAccount is a POD (Plain Old Data) type
-        let mut account = PodStateWithExtensionsMut::<PodAccount>::unpack(*account_data_ref)?;
-        // Get the TransferHookAccount extension
-        // Search for the TransferHookAccount extension in the token account
-        // The returning struct has a `transferring` field that indicates if the account is in the middle of a transfer operation
-        let account_extension = account.get_extension_mut::<TransferHookAccount>()?;
-
-        // Check if the account is in the middle of a transfer operation
-        if !bool::from(account_extension.transferring) {
-            panic!("TransferHook: Not transferring");
-        }
-
-        Ok(())
-    }
-}
-```
-
-In this implementation, we first verify that the hook is being called during an actual transfer operation by checking the transfer hook account extension. Then we log the source and destination token owners for debugging purposes. Finally, we validate that the owner of the source token account is present in our whitelist. If the address is whitelisted, the transfer is allowed; otherwise, it fails with a panic, preventing unauthorized token movements.
-
-The transfer hook integrates seamlessly with the SPL Token 2022 transfer process, automatically validating every transfer attempt against the maintained whitelist without requiring additional user intervention.
-
-This whitelist transfer hook provides a robust access control mechanism for Token 2022 mints, ensuring that only pre-approved addresses can transfer tokens while maintaining the standard token interface that users and applications expect.
+- [SPL Token 2022](https://spl.solana.com/token-2022)
+- [Transfer Hook interface](https://spl.solana.com/token-2022/extensions#transfer-hook-extension)
+- [Anchor](https://www.anchor-lang.com/)
+- [Solana Cookbook](https://solanacookbook.com/)
+- [Reference implementation](https://github.com/ASCorreia/whitelist-transfer-hook)
 
 ---
 
-### Resources:
-
-https://github.com/ASCorreia/whitelist-transfer-hook
+_This whitelist transfer hook provides a clear, on-chain access control layer for Token 2022 mints: only pre-approved addresses can transfer, while still using the standard token interface that wallets and applications expect._
