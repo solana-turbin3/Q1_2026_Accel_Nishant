@@ -51,7 +51,7 @@ pub struct RemoveFromWhitelist<'info> {
 impl<'info> AddToWhitelist<'info> {
     pub fn add_to_whitelist(&mut self, bump: AddToWhitelistBumps, user: Pubkey) -> Result<()> {
         self.whitelisted_user.set_inner(WhitelistedUser {
-            user: self.admin.key(),
+            user: user,
             bump: bump.whitelisted_user,
         });
 

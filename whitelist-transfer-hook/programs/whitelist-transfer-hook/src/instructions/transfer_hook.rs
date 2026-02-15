@@ -47,6 +47,7 @@ impl<'info> TransferHook<'info> {
         self.check_is_transferring()?;
 
         msg!("Source token owner: {}", self.source_token.owner);
+        msg!("Whitelisted User : {}", self.whitelisted_user.user);
         msg!("Destination token owner: {}", self.destination_token.owner);
 
         if self.whitelisted_user.user == self.source_token.owner {
