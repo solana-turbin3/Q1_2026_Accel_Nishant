@@ -24,15 +24,17 @@ pub mod whitelist_transfer_hook {
     pub fn init_config(ctx: Context<InitConfig>) -> Result<()> {
         ctx.accounts.init_config(ctx.bumps)
     }
-    pub fn add_to_whitelist(ctx: Context<WhitelistOperations>, user: Pubkey) -> Result<()> {
-        ctx.accounts.add_to_whitelist(ctx.bumps)
+    pub fn add_to_whitelist(ctx: Context<AddToWhitelist>, user: Pubkey) -> Result<()> {
+        ctx.accounts.add_to_whitelist(ctx.bumps, user)
     }
 
     pub fn remove_from_whitelist(ctx: Context<RemoveFromWhitelist>, user: Pubkey) -> Result<()> {
-        Ok(())
+        ctx.accounts.remove_from_whitelist(user)
     }
 
-    // pub fn init_mint() {}
+    pub fn init_mint(ctx: Context<TokenFactory>, decimals: u8) -> Result<()> {
+        ctx.accounts.init_mint(ctx.bumps, decimals)
+    }
 
     // pub fn transfer_token() {}
     /*

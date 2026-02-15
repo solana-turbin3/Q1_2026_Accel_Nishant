@@ -1,78 +1,72 @@
-// use anchor_lang::prelude::*;
-// use anchor_spl::token_interface::{Mint, TokenInterface};
 
-// use crate::state::WhitelistedUser;
 
-// #[derive(Accounts)]
-// pub struct TokenFactory<'info> {
-//     #[account(mut)]
-//     pub user: Signer<'info>,
-//     #[account(
-//         init,
-//         payer = user,
-//         mint::decimals = 9,
-//         mint::authority = user,
-//     )]
-//     pub mint: InterfaceAccount<'info, Mint>,
-//     /// CHECK: ExtraAccountMetaList Account, will be checked by the transfer hook
-//     #[account(mut)]
-//     pub extra_account_meta_list: UncheckedAccount<'info>,
-//     #[account(
-//         seeds = [b"whitelist"],
-//         bump
-//     )]
-//     pub blocklist: Account<'info, WhitelistedUser>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Interface<'info, TokenInterface>,
-// }
-
-// impl<'info> TokenFactory<'info> {
-//     pub fn init_mint(&mut self, bumps: &TokenFactoryBumps) -> Result<()> {
-//         Ok(())
-//     }
-// }
 use anchor_lang::{
     prelude::*,
+    solana_program::program::invoke,
     system_program::{create_account, CreateAccount},
 };
 use anchor_spl::token_2022::{
-    spl_token_2022::{extension::ExtensionType, state::Mint as Token2022Mint},
+    spl_token_2022::{
+        extension::{transfer_hook::instruction::initialize as init_transfer_hook, ExtensionType},
+        instruction::initialize_mint2,
+        state::Mint as Token2022Mint,
+    },
     Token2022,
 };
+
+use crate::{constant::{INIT_CONFIG_SEED, MINT_TOKEN_SEED}, state::Config};
 
 #[derive(Accounts)]
 pub struct TokenFactory<'info> {
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub payer: Signer<'info>,
 
-    /// CHECK: We will create and initialize this account manually
-    #[account(mut, signer)]
-    pub mint: AccountInfo<'info>,
+    #[account(
+        seeds = [INIT_CONFIG_SEED ,config.admin.key().as_ref()],
+        bump = config.bump,
+    )]
+    pub config: Account<'info, Config>,
+
+    /// CHECK: We will create and initialize this mint account manually
+    #[account(
+        mut, 
+        seeds=[MINT_TOKEN_SEED, config.key().as_ref()],
+        bump
+    )]
+    pub mint: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token2022>,
 }
 
 impl<'info> TokenFactory<'info> {
-    pub fn init_mint(&mut self, decimals: u8) -> Result<()> {
+    pub fn init_mint(&mut self,bump:TokenFactoryBumps, decimals: u8) -> Result<()> {
         // Calculate the space needed for mint with TransferHook extension
         let extension_types = vec![ExtensionType::TransferHook];
         let space = ExtensionType::try_calculate_account_len::<Token2022Mint>(&extension_types)
-            .map_err(|_| error!(crate::err::ErrorCode::ExtensionInitializationFailed))?;
+            .map_err(|_| error!(crate::error::ErrorCode::ExtensionInitializationFailed))?;
 
         msg!("Mint account space needed: {} bytes", space);
 
         // Calculate rent
         let lamports = Rent::get()?.minimum_balance(space);
 
-        // Create the mint account via CPI to System Program
+
+        let config_binding = self.config.clone().key();
+        let signer_seeds: &[&[u8]] = &[
+            MINT_TOKEN_SEED,
+            config_binding.as_ref(),
+            &[bump.mint],
+        ];
+
         create_account(
-            CpiContext::new(
+            CpiContext::new_with_signer(
                 self.system_program.to_account_info(),
                 CreateAccount {
-                    from: self.user.to_account_info(),
+                    from: self.payer.to_account_info(),
                     to: self.mint.to_account_info(),
                 },
+                &[signer_seeds],
             ),
             lamports,
             space as u64,
@@ -80,17 +74,18 @@ impl<'info> TokenFactory<'info> {
         )?;
 
         msg!("Mint account created");
+        
 
         // Initialize the TransferHook extension via CPI
         let init_hook_ix =
-            anchor_spl::token_2022::spl_token_2022::extension::transfer_hook::instruction::initialize(
+        init_transfer_hook(
                 &self.token_program.key(),
                 &self.mint.key(),
-                Some(self.user.key()),
+                Some(self.payer.key()),
                 Some(crate::ID),
             )?;
 
-        anchor_lang::solana_program::program::invoke(
+        invoke(
             &init_hook_ix,
             &[self.mint.to_account_info()],
         )?;
@@ -98,15 +93,15 @@ impl<'info> TokenFactory<'info> {
         msg!("Transfer hook extension initialized");
 
         // Initialize the base mint via CPI
-        let init_mint_ix = anchor_spl::token_2022::spl_token_2022::instruction::initialize_mint2(
+        let init_mint_ix = initialize_mint2(
             &self.token_program.key(),
             &self.mint.key(),
-            &self.user.key(),
-            Some(&self.user.key()),
+            &self.payer.key(),
+            Some(&self.payer.key()),
             decimals,
         )?;
 
-        anchor_lang::solana_program::program::invoke(
+        invoke(
             &init_mint_ix,
             &[self.mint.to_account_info()],
         )?;
@@ -114,8 +109,27 @@ impl<'info> TokenFactory<'info> {
         msg!("Mint initialized successfully");
         msg!("Mint address: {}", self.mint.key());
         msg!("Transfer hook program: {}", crate::ID);
-        msg!("Transfer hook authority: {}", self.user.key());
+        msg!("Transfer hook authority: {}", self.payer.key());
 
         Ok(())
     }
 }
+
+
+
+/*
+
+/// Use when, We need raw solana type .
+ pub mint: AccountInfo<'info>, 
+
+/// Anchor has wrapeer on AccountInfo, but at runtime are both same
+ pub owner: UncheckedAccount<'info>
+
+
+**UncheckedAccount**
+This tells Anchor:
+ This is an account in instruction
+✔ Validate PDA using seeds
+✔ Do NOT deserialize
+✔ Do NOT expect discriminator
+*/
