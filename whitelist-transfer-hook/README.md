@@ -7,7 +7,7 @@ A **Solana program** that uses the **SPL Token 2022 Transfer Hook** interface to
 ## Table of Contents
 
 - [What is this?](#what-is-this)
-- [Concepts for beginners](#concepts-for-beginners)
+- [Concepts](#concepts-for-beginners)
 - [Protocol overview](#protocol-overview)
 - [Devnet deployment](#devnet-deployment)
 - [Architecture](#architecture)
@@ -31,7 +31,7 @@ Admins use the program to add or remove addresses from the whitelist. The check 
 
 ---
 
-## Concepts for beginners
+## Concepts
 
 | Term                              | Meaning                                                                                              |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
