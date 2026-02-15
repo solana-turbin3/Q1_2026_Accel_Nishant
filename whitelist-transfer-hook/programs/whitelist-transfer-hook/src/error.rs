@@ -12,4 +12,8 @@ pub enum ErrorCode {
     ExtensionInitializationFailed,
     #[msg("Unauthorized: Only admin can perform this action")]
     Unauthorized,
+    #[msg("Address is not whitelisted")]
+    NotWhiteListed,
+    #[msg("TransferHook: Not transferring")]
+    NotTransferring,
 }

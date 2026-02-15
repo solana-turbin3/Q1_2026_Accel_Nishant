@@ -36,7 +36,14 @@ pub mod whitelist_transfer_hook {
         ctx.accounts.init_mint(ctx.bumps, decimals)
     }
 
-    // pub fn transfer_token() {}
+    #[instruction(discriminator = ExecuteInstruction::SPL_DISCRIMINATOR_SLICE)]
+    pub fn transfer_token(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+        ctx.accounts.transfer_hook(amount)
+    }
+
+    pub fn initialize_transfer_hook(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
+        ctx.accounts.initialize_extra_account_meta_list(&ctx.bumps)
+    }
     /*
 
     pub fn initialize_transfer_hook(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
