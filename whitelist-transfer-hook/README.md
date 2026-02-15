@@ -64,7 +64,7 @@ Let´s have a closer look at the accounts that we are passing in this context:
 impl<'info> InitializeWhitelist<'info> {
     pub fn initialize_whitelist(&mut self, bumps: InitializeWhitelistBumps) -> Result<()> {
         // Initialize the whitelist with an empty address vector
-        self.whitelist.set_inner(Whitelist { 
+        self.whitelist.set_inner(Whitelist {
             address: vec![],
             bump: bumps.whitelist,
         });
@@ -139,7 +139,7 @@ impl<'info> WhitelistOperations<'info> {
             // Perform transfer of additional rent
             let cpi_program = self.system_program.to_account_info();
             let cpi_accounts = system_program::Transfer{
-                from: self.admin.to_account_info(), 
+                from: self.admin.to_account_info(),
                 to: account_info.clone(),
             };
             let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
@@ -169,6 +169,7 @@ impl<'info> WhitelistOperations<'info> {
     }
 }
 ```
+
 In here, we implement the logic to dynamically add and remove addresses from the whitelist, adding or deducing lamports from the whitelist account to take in consideration the new size.
 
 - When adding a new address to the whitelist, we first calculate and transfer additional rent from the admin to the whitelist account via CPI, then resize the account to accommodate the new data, and lastly we add the new address to the vector.
@@ -241,7 +242,7 @@ In here, we define the extra accounts that will be required during transfer hook
 #[derive(Accounts)]
 pub struct TransferHook<'info> {
     #[account(
-        token::mint = mint, 
+        token::mint = mint,
         token::authority = owner,
     )]
     pub source_token: InterfaceAccount<'info, TokenAccount>,
@@ -254,12 +255,12 @@ pub struct TransferHook<'info> {
     pub owner: UncheckedAccount<'info>,
     /// CHECK: ExtraAccountMetaList Account,
     #[account(
-        seeds = [b"extra-account-metas", mint.key().as_ref()], 
+        seeds = [b"extra-account-metas", mint.key().as_ref()],
         bump
     )]
     pub extra_account_meta_list: UncheckedAccount<'info>,
     #[account(
-        seeds = [b"whitelist"], 
+        seeds = [b"whitelist"],
         bump = whitelist.bump,
     )]
     pub whitelist: Account<'info, Whitelist>,
@@ -333,6 +334,10 @@ In this implementation, we first verify that the hook is being called during an 
 
 The transfer hook integrates seamlessly with the SPL Token 2022 transfer process, automatically validating every transfer attempt against the maintained whitelist without requiring additional user intervention.
 
+This whitelist transfer hook provides a robust access control mechanism for Token 2022 mints, ensuring that only pre-approved addresses can transfer tokens while maintaining the standard token interface that users and applications expect.
+
 ---
 
-This whitelist transfer hook provides a robust access control mechanism for Token 2022 mints, ensuring that only pre-approved addresses can transfer tokens while maintaining the standard token interface that users and applications expect. 
+### Resources:
+
+https://github.com/ASCorreia/whitelist-transfer-hook
