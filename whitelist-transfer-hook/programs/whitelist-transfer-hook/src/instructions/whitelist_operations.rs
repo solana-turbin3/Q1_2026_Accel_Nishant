@@ -1,24 +1,73 @@
-use crate::state::whitelist::WhitelistedUser;
+use crate::{
+    constant::{INIT_CONFIG_SEED, WHITELISTED_USER_SEED},
+    error::ErrorCode,
+    state::{whitelist::WhitelistedUser, Config},
+};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-pub struct WhitelistOperations<'info> {
-    #[account(
-        mut,
-        //address = 
-    )]
+#[instruction(user: Pubkey)]
+pub struct AddToWhitelist<'info> {
+    #[account(mut)]
     pub admin: Signer<'info>,
     #[account(
-        init,
-        payer= admin,
-        seeds = [b"whitelist", admin.key().as_ref()],
-        bump,
-        space = 8 + 1
+        seeds = [INIT_CONFIG_SEED ,admin.key().as_ref()],
+        bump = config.bump,
+        constraint = config.admin == admin.key() @ ErrorCode::Unauthorized,
     )]
-    pub whitelist: Account<'info, WhitelistedUser>,
+    pub config: Account<'info, Config>,
+    #[account(
+        init,
+        payer = admin,
+        space = WhitelistedUser::LEN,
+        seeds = [WHITELISTED_USER_SEED, user.as_ref()],
+        bump
+    )]
+    pub whitelisted_user: Account<'info, WhitelistedUser>,
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+#[instruction(user: Pubkey)]
+pub struct RemoveFromWhitelist<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    #[account(
+        seeds = [INIT_CONFIG_SEED ,admin.key().as_ref()],
+        bump = config.bump,
+        constraint = config.admin == admin.key() @ ErrorCode::Unauthorized,
+    )]
+    pub config: Account<'info, Config>,
+    #[account(
+        mut,
+        close = admin,
+        seeds = [WHITELISTED_USER_SEED, user.as_ref()],
+        bump
+    )]
+    pub whitelisted_user: Account<'info, WhitelistedUser>,
+    pub system_program: Program<'info, System>,
+}
+
+impl<'info> AddToWhitelist<'info> {
+    pub fn add_to_whitelist(&mut self, bump: AddToWhitelistBumps, user: Pubkey) -> Result<()> {
+        self.whitelisted_user.set_inner(WhitelistedUser {
+            user: self.admin.key(),
+            bump: bump.whitelisted_user,
+        });
+
+        msg!("Added to whitelist. User: {}", user.key());
+        Ok(())
+    }
+}
+
+impl<'info> RemoveFromWhitelist<'info> {
+    pub fn remove_from_whitelist(&mut self, user: Pubkey) -> Result<()> {
+        msg!("Remove from whitelist. User: {}", user.key());
+        Ok(())
+    }
+}
+
+/*
 impl<'info> WhitelistOperations<'info> {
     pub fn add_to_whitelist(&mut self, bump: WhitelistOperationsBumps) -> Result<()> {
         // if !self.whitelist.address.contains(&address) {
@@ -41,7 +90,7 @@ impl<'info> WhitelistOperations<'info> {
     //     Ok(())
     // }
 
-    /*
+
     pub fn realloc_whitelist(&self, is_adding: bool) -> Result<()> {
         // Get the account info for the whitelist
         let account_info = self.whitelist.to_account_info();
@@ -86,5 +135,6 @@ impl<'info> WhitelistOperations<'info> {
         Ok(())
     }
 
-    */
+
 }
+ */

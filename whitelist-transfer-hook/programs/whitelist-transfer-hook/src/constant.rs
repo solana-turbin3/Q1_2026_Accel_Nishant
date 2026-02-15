@@ -1,1 +1,3 @@
 pub const INIT_CONFIG_SEED: &[u8] = b"config";
+pub const WHITELISTED_USER_SEED: &[u8] = b"whitelisted_user";
+pub const MINT_TOKEN_SEED: &[u8] = b"mint-token-admin";
