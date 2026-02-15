@@ -3,7 +3,7 @@
 
 use anchor_lang::prelude::*;
 
-mod err;
+mod error;
 mod instructions;
 mod state;
 use instructions::*;
@@ -20,6 +20,7 @@ declare_id!("EfvcbUrqid3P54BhoFLrJhAdJxe2vxKhGG9sDRvCsWHh");
 pub mod whitelist_transfer_hook {
     use super::*;
 
+    pub fn init_config() {}
     pub fn add_to_whitelist(ctx: Context<WhitelistOperations>, user: Pubkey) -> Result<()> {
         ctx.accounts.add_to_whitelist(ctx.bumps)
     }
@@ -27,6 +28,11 @@ pub mod whitelist_transfer_hook {
     pub fn remove_from_whitelist(ctx: Context<RemoveFromWhitelist>, user: Pubkey) -> Result<()> {
         Ok(())
     }
+
+    pub fn init_mint() {}
+
+    pub fn transfer_token() {}
+    /*
 
     pub fn initialize_transfer_hook(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
         msg!("Initializing Transfer Hook...");
@@ -53,4 +59,5 @@ pub mod whitelist_transfer_hook {
         // Call the transfer hook logic
         ctx.accounts.transfer_hook(amount)
     }
+     */
 }
