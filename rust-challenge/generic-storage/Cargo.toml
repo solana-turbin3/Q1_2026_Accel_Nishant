@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+borsh = { version = "1.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+thiserror = "1.0"        # optional, nicer errors
+
+
+[dev-dependencies]
+pretty_assertions = "1"
