@@ -9,7 +9,7 @@ mod tests;
 
 use instructions::*;
 
-declare_id!("FircrADQ2wgGuvpm8qneNCfKM7o5zoHTWnDQxngpTQ3J");
+declare_id!("Hrgicx7LZgt9DWnRqufJvFXZhFPsTeWHTxJvW3yC51tD");
 
 #[program]
 pub mod anchor_escrow {
