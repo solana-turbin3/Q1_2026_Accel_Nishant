@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked}};
 
-use crate::state::Escrow;
+use crate::{constants::ESCROW_SEED, state::Escrow};
 
 #[derive(Accounts)]
 #[instruction(seed: u64)]
@@ -19,9 +19,9 @@ pub struct Make<'info> {
     #[account(
         init,
         payer = maker,
-        seeds = [b"escrow", maker.key().as_ref(), seed.to_le_bytes().as_ref()],
+        seeds = [ESCROW_SEED, maker.key().as_ref(), seed.to_le_bytes().as_ref()],
         bump,
-        space = 8 + Escrow::INIT_SPACE,
+        space = Escrow::DISCRIMINATOR.len() + Escrow::INIT_SPACE,
     )]
     pub escrow: Account<'info, Escrow>,
     #[account(
@@ -38,12 +38,14 @@ pub struct Make<'info> {
 
 impl<'info> Make<'info> {
     pub fn init_escrow(&mut self, seed: u64, receive: u64, bumps: &MakeBumps) -> Result<()> {
+        let clock = Clock::get()?;
         self.escrow.set_inner(Escrow {
             seed,
             maker: self.maker.key(),
             mint_a: self.mint_a.key(),
             mint_b: self.mint_b.key(),
             receive,
+            created_at: clock.unix_timestamp,
             bump: bumps.escrow,
         });
 
