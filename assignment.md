@@ -48,3 +48,14 @@ Update the escrow smart contract so that the `take` instruction can _only_ be ex
 
 **How to Submit:**  
 When you're done, create a GitHub repository for your solution under the [Turbin3 organization](https://github.com/solana-turbin3) and share the link!
+
+### 6. Solana GPT with Tuktuk Scheduler
+
+- Schedule the Solana GPT Oracle (from MagicBlock) with Tuktuk.
+- Your program should be correctly getting the response back from the GPT.
+
+### 7. Rust Challenge
+
+- Complete the Rust challenge in the `rust-challenge` directory.
+- The challenge is to implement a generic storage system and a persistent todo queue.
+- The challenge is to implement a generic storage system and a persistent todo queue.
