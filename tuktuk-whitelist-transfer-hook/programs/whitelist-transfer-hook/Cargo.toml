@@ -25,4 +25,5 @@ spl-discriminator = "0.5.1"
 spl-tlv-account-resolution = "0.11.1"
 # Library with helper to resolve additional accounts
 spl-transfer-hook-interface = "2.1.0"
+tuktuk-program = { git = "https://github.com/AvhiMaz/tuktuk", branch = "chore/bump-versions", package = "tuktuk-program" }
 
