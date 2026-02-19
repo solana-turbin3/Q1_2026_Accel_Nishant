@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked, CloseAccount, close_account}};
 
-use crate::state::Escrow;
+use crate::{state::Escrow, constants::{ESCROW_SEED, FIVE_DAYS_IN_SECONDS}, error::AppError};
 
 //Create context
 #[derive(Accounts)]
@@ -38,7 +38,7 @@ pub struct Take<'info> {
         has_one = maker,
         has_one = mint_a,
         has_one = mint_b,
-        seeds = [b"escrow", maker.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
+        seeds = [ESCROW_SEED, maker.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
         bump = escrow.bump,
     )]
     pub escrow: Account<'info, Escrow>,
@@ -58,6 +58,10 @@ pub struct Take<'info> {
 //Close vault account
 impl<'info> Take<'info> {
     pub fn deposit(&mut self) -> Result<()> {
+         require!(
+            Clock::get().unwrap().unix_timestamp >= self.escrow.created_at + FIVE_DAYS_IN_SECONDS,
+            AppError::TooEarlyToClaim,
+        );
         let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = TransferChecked {
@@ -74,7 +78,7 @@ impl<'info> Take<'info> {
 
     pub fn withdraw_and_close_vault(&mut self) -> Result<()> {
         let signer_seeds: [&[&[u8]]; 1] = [&[
-            b"escrow",
+            ESCROW_SEED,
             self.maker.key.as_ref(),
             &self.escrow.seed.to_le_bytes()[..],
             &[self.escrow.bump]
