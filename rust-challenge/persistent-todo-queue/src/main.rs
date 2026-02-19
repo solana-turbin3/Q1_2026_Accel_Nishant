@@ -94,6 +94,7 @@ where
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         self.items.serialize(writer)
     }
+
 }
 
 impl<T> BorshDeserialize for Queue<T>
@@ -115,6 +116,7 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
 
+    println!("Args: {:?}", args);
     if args.len() < 2 {
         println!("Usage:");
         println!("todo add \"Task description\"");
