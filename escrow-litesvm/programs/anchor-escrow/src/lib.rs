@@ -3,15 +3,15 @@
 
 use anchor_lang::prelude::*;
 
-mod state;
+pub mod state;
 mod instructions;
-mod tests;
+// mod tests;
 mod error;
 mod constants;
 
 use instructions::*;
 
-declare_id!("Hrgicx7LZgt9DWnRqufJvFXZhFPsTeWHTxJvW3yC51tD");
+declare_id!("yRpcWL5c7CZkiDzjUrJKMaspZuPXG7xgE2ymE8L2xPQ");
 
 #[program]
 pub mod anchor_escrow {

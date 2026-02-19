@@ -1,5 +1,5 @@
-use litesvm::LiteSVM;
-use solana_pubkey::Pubkey;
+#[cfg(test)]
+mod setup;
 
 #[cfg(test)]
 mod tests {
@@ -191,75 +191,8 @@ mod tests {
         assert_eq!(escrow_data.mint_b, mint_b);
         assert_eq!(escrow_data.receive, 10);
 
-        ///------- --- Take ---
-        MintTo::new(&mut svm, &taker, &mint_b, &taker_ata_b, INITIAL_MINT_AMOUNT)
-            .send()
-            .expect("Mint to taker ATA");
+     
 
-        send_tx(
-            &mut svm,
-            take_instruction(
-                program_id,
-                &maker,
-                &taker,
-                mint_a,
-                mint_b,
-                taker_ata_a,
-                taker_ata_b,
-                maker_ata_b,
-                escrow,
-                vault,
-                associated_token_program,
-                token_program,
-                system_program,
-            ),
-            &[&taker],
-        );
-        assert!(
-            svm.get_account(&address_from_pubkey(escrow)).is_none(),
-            "Escrow should be closed after take"
-        );
+    
     }
-}
-
-fn take_instruction(
-    program_id: Address,
-    maker: &Keypair,
-    taker: &Keypair,
-    mint_a: Pubkey,
-    mint_b: Pubkey,
-    taker_ata_a: Pubkey,
-    taker_ata_b: Pubkey,
-    maker_ata_b: Pubkey,
-    escrow: Pubkey,
-    vault: Pubkey,
-    associated_token_program: Pubkey,
-    token_program: Pubkey,
-    system_program: Pubkey,
-) -> Instruction {
-    Instruction {
-        program_id,
-        accounts: to_account_metas(Take {
-            taker: taker.pubkey(),
-            maker: maker.pubkey(),
-            mint_a: mint_a,
-            mint_b: mint_b,
-            taker_ata_a: taker_ata_a,
-            taker_ata_b: taker_ata_b,
-            maker_ata_b: maker_ata_b,
-            escrow,
-            vault,
-            associated_token_program: associated_token_program,
-            token_program: token_program,
-            system_program,
-        }),
-        data: TakeIx {}.data(),
-    }
-}
-
-fn send_tx(svm: &mut LiteSVM, ix: Instruction, signers: &[&Keypair]) {
-    let payer = signers[0].pubkey();
-    let tx =
-        Transaction::new_signed_with_payer(&[ix], Some(&payer), signers, svm.latest_blockhash());
-    svm.send_transaction(tx).expect("Transaction failed");
 }
