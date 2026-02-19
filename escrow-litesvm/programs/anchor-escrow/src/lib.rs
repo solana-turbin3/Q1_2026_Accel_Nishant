@@ -6,6 +6,8 @@ use anchor_lang::prelude::*;
 mod state;
 mod instructions;
 mod tests;
+mod error;
+mod constants;
 
 use instructions::*;
 
