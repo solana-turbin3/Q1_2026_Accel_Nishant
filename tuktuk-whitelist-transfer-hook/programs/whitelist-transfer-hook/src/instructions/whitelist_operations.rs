@@ -53,6 +53,8 @@ impl<'info> AddToWhitelist<'info> {
         self.whitelisted_user.set_inner(WhitelistedUser {
             user: user,
             bump: bump.whitelisted_user,
+            is_active: true,
+            expiry_timestamp: Clock::get().unwrap().unix_timestamp + 60, // 1 minute
         });
 
         msg!("Added to whitelist. User: {}", user.key());

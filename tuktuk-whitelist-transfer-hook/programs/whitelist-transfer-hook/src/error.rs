@@ -16,4 +16,6 @@ pub enum ErrorCode {
     NotWhiteListed,
     #[msg("TransferHook: Not transferring")]
     NotTransferring,
+    #[msg("User is not expired")]
+    NotExpired,
 }

@@ -44,4 +44,13 @@ pub mod whitelist_transfer_hook {
     pub fn initialize_transfer_hook(ctx: Context<InitializeExtraAccountMetaList>) -> Result<()> {
         ctx.accounts.initialize_extra_account_meta_list(&ctx.bumps)
     }
+    
+      pub fn expire_user(ctx: Context<ExpireUser>, user: Pubkey) -> Result<()> {
+        ctx.accounts.expire_user(user)
+    }
+
+    pub fn schedule_expiry(ctx: Context<ScheduleExpiry>, user: Pubkey, expiry_timestamp: i64) -> Result<()> {//it will call by tuktup cpi
+        ctx.accounts.schedule_expiry(user, expiry_timestamp)
+    }
+
 }

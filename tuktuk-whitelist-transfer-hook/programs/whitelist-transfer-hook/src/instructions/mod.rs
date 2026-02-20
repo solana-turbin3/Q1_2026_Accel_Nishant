@@ -5,6 +5,8 @@ pub mod init_config;
 pub mod mint_token;
 // pub mod remove_user;
 pub mod whitelist_operations;
+pub mod expire_user;
+pub mod schedule_expiry;
 
 pub use init_extra_account_meta::*;
 pub use transfer_hook::*;
@@ -13,3 +15,5 @@ pub use init_config::*;
 pub use mint_token::*;
 // pub use remove_user::*;
 pub use whitelist_operations::*;
+pub use expire_user::*;
+pub use schedule_expiry::*;
